@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const { GoogleGenAI } = require('@google/genai');
-const http = require('http'); // Built-in Node tool to create a free web server
+const http = require('http');
 
 const client = new Client({
     intents: [
@@ -15,7 +15,6 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const conversationHistory = new Map();
 
 // --- FREE WEB SERVER TO KEEP BOT ALIVE 24/7 ---
-// This listens to the PORT variable we created on Render and replies "OK" to stay awake!
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Fraud-Bot is Alive and Running 24/7!\n');
@@ -24,14 +23,13 @@ const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
     console.log(`Web server keeping bot awake listening on port ${PORT}`);
 });
-// ----------------------------------------------
 
 client.once('ready', () => {
     client.user.setPresence({
-        activities: [{ name: 'Browsing TBB Wiki 🌐' }],
+        activities: [{ name: 'Battle Bricks 🧱' }],
         status: 'online',
     });
-    console.log(`${client.user.tag} is online with robust error safety fallback active!`);
+    console.log(`${client.user.tag} is online and fully stable!`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -40,8 +38,8 @@ client.on('messageCreate', async (message) => {
     if (message.content.startsWith('!help')) {
         const helpEmbed = new EmbedBuilder()
             .setColor(0xF4B400)
-            .setTitle('🧱 Fraud-Bot: Fail-Safe Mode')
-            .setDescription('I scan chat automatically and use dual-layer safety to prevent frozen typing indicators.')
+            .setTitle('🧱 Fraud-Bot: Stable AI Mode')
+            .setDescription('I scan chat automatically! Talk about units, loadouts, or bosses like Chronos.')
             .setFooter({ text: 'Powered by Gemini 3.6 Flash' });
 
         return message.reply({ embeds: [helpEmbed] });
@@ -50,7 +48,8 @@ client.on('messageCreate', async (message) => {
     const triggerKeywords = [
         'loadout', 'deck', 'unit', 'battler', 'enemy', 'enemies', 
         'boss', 'stage', 'chapter', 'subchapter', 'counter', 'anti-',
-        'casual', 'tumore', 'mangos', 'xp', 'bricks', 'wiki', 'strategy'
+        'casual', 'tumore', 'mangos', 'xp', 'bricks', 'wiki', 'strategy',
+        'chronos', 'tumore', 'angel'
     ];
 
     const messageLower = message.content.toLowerCase();
@@ -68,7 +67,11 @@ client.on('messageCreate', async (message) => {
             conversationHistory.set(userId, [
                 { 
                     role: 'user', 
-                    parts: [{ text: 'System Instruction: You are Fraud-Bot, an expert companion for the Roblox game "The Battle Bricks". You analyze user questions and recommend explicit 8-unit slot loadouts. Economy meta: deploy a "Builder" or "Speed" unit early to protect your base while upgrading your Base Bank economy level to 5-7 to scale resources.' }] 
+                    parts: [{ text: 'System Instruction: You are Fraud-Bot, an expert companion for the Roblox game "The Battle Bricks" (created by Tumore). You analyze user questions and recommend explicit 8-unit slot loadouts.\n\n' +
+                             'CRITICAL WIKI KNOWLEDGE:\n' +
+                             '- Chronos: Chronos is a massive Angel Boss character in the game. He originally appeared as the main boss in the "Across Heaven" subchapter update. To counter Chronos, players must use units with the "Anti-Angel" trait modifier to reduce incoming damage and deal extra damage.\n' +
+                             '- Economy Meta: Always deploy a "Builder" or "Speed" unit early to protect your base while upgrading your Base Bank economy level to 5-7 to scale resources.\n' +
+                             '- Trait Counters: Structure loadouts around Anti-Red, Anti-Black (Spartan, Rocket, Ninja), Anti-Death, Anti-Angel (crucial for Chronos), Anti-Zombie, and Anti-Devil.' }] 
                 }
             ]);
         }
@@ -77,12 +80,10 @@ client.on('messageCreate', async (message) => {
         userHistory.push({ role: 'user', parts: [{ text: userPrompt }] });
 
         try {
+            // Running standard fast generation without the unstable search tools
             const response = await ai.models.generateContent({
                 model: 'gemini-3.6-flash',
-                contents: userHistory,
-                config: {
-                    tools: [{ googleSearch: {} }] 
-                }
+                contents: userHistory
             });
 
             const aiReply = response.text;
@@ -91,25 +92,9 @@ client.on('messageCreate', async (message) => {
 
             await message.reply(aiReply);
 
-        } catch (searchError) {
-            console.warn("⚠️ Live Search grounding hit an error or timeout, applying backup brain...", searchError);
-            
-            try {
-                const fallbackResponse = await ai.models.generateContent({
-                    model: 'gemini-3.6-flash',
-                    contents: userHistory
-                });
-
-                const fallbackReply = fallbackResponse.text;
-                userHistory.push({ role: 'model', parts: [{ text: fallbackReply }] });
-                if (userHistory.length > 8) userHistory.splice(1, 2);
-
-                await message.reply(fallbackReply + "\n\n*(🤖 Note: Live wiki searching timed out, generated from my backup memory core!)*");
-
-            } catch (fatalError) {
-                console.error("❌ Fatal AI Loop Failure:", fatalError);
-                await message.reply("My systems locked up processing that loadout request. Try simplifying your query!");
-            }
+        } catch (fatalError) {
+            console.error("❌ Fatal AI Loop Failure:", fatalError);
+            await message.reply("My memory banks are updating! Try asking your question again in a second.");
         }
     }
 });

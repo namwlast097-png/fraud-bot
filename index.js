@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const { GoogleGenAI } = require('@google/genai');
+const http = require('http'); // Built-in Node tool to create a free web server
 
 const client = new Client({
     intents: [
@@ -12,6 +13,18 @@ const client = new Client({
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const conversationHistory = new Map();
+
+// --- FREE WEB SERVER TO KEEP BOT ALIVE 24/7 ---
+// This listens to the PORT variable we created on Render and replies "OK" to stay awake!
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Fraud-Bot is Alive and Running 24/7!\n');
+});
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+    console.log(`Web server keeping bot awake listening on port ${PORT}`);
+});
+// ----------------------------------------------
 
 client.once('ready', () => {
     client.user.setPresence({
@@ -48,7 +61,6 @@ client.on('messageCreate', async (message) => {
         const userPrompt = message.content.replace(`<@${client.user.id}>`, '').trim();
         if (!userPrompt) return;
 
-        // Start typing indicator
         await message.channel.sendTyping();
 
         const userId = message.author.id;
@@ -65,7 +77,6 @@ client.on('messageCreate', async (message) => {
         userHistory.push({ role: 'user', parts: [{ text: userPrompt }] });
 
         try {
-            // LAYER 1: Attempt the live web search tool request
             const response = await ai.models.generateContent({
                 model: 'gemini-3.6-flash',
                 contents: userHistory,
@@ -84,7 +95,6 @@ client.on('messageCreate', async (message) => {
             console.warn("⚠️ Live Search grounding hit an error or timeout, applying backup brain...", searchError);
             
             try {
-                // LAYER 2 FALLBACK: Run a standard fast generation without the search tool so it doesn't freeze
                 const fallbackResponse = await ai.models.generateContent({
                     model: 'gemini-3.6-flash',
                     contents: userHistory
